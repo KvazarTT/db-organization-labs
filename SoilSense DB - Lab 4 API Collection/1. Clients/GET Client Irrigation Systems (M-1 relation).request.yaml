@@ -1,0 +1,5 @@
+$kind: http-request
+name: GET Client Irrigation Systems (M:1 relation)
+url: "{{base_url}}/api/clients/1/irrigation-systems"
+method: GET
+order: 6000

@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/irrigation-systems"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "client_id": 1,
+      "system_name": "Автополив Розумний Сад 2.0",
+      "status": "active"
+    }
+order: 3000

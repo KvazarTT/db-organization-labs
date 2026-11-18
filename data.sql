@@ -1,6 +1,7 @@
 CREATE DATABASE IF NOT EXISTS soilsense_db;
 USE soilsense_db;
 
+-- Видалення таблиць у зворотному порядку залежностей
 DROP TABLE IF EXISTS pump_operations;
 DROP TABLE IF EXISTS nozzles;
 DROP TABLE IF EXISTS pumps;

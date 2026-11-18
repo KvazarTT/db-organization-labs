@@ -1,0 +1,12 @@
+database:
+  driver: "mysql+pymysql"
+  user: "root"
+  password: "667a8145.A"
+  host: "localhost"
+  port: 3306
+  name: "soilsense_db"
+
+server:
+  host: "127.0.0.1"
+  port: 5000
+  debug: true

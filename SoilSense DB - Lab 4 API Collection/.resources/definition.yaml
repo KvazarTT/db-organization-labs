@@ -1,0 +1,4 @@
+$kind: collection
+description: "Postman Collection for testing Laboratory Work #4 Back-End (Flask + MySQL) for soilsense_db"
+variables:
+  base_url: http://127.0.0.1:5000
