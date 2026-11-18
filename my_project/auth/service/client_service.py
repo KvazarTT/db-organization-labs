@@ -4,6 +4,7 @@ from my_project.auth.dao.client_dao import ClientDAO
 from my_project.auth.domain.client import Client
 from my_project.auth.domain.irrigation_system import IrrigationSystem
 
+
 class ClientService(GeneralService):
     def __init__(self):
         self._dao = ClientDAO()

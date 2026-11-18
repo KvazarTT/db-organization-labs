@@ -1,7 +1,18 @@
 from typing import Tuple, Any, Dict
+from sqlalchemy.exc import SQLAlchemyError
+
 
 class GeneralController:
     _service = None
+
+    @staticmethod
+    def format_db_error(exc: Exception) -> str:
+        if isinstance(exc, SQLAlchemyError) and getattr(exc, 'orig', None) is not None:
+            orig_args = getattr(exc.orig, 'args', ())
+            if len(orig_args) >= 2:
+                return str(orig_args[1])
+            return str(exc.orig)
+        return str(exc)
 
     def find_all(self) -> Tuple[Any, int]:
         entities = self._service.find_all()

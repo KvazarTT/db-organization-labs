@@ -2,6 +2,7 @@ import os
 import yaml
 from pathlib import Path
 
+
 def load_config(config_path: str = None) -> dict:
     """Loads configuration from app.yml with fallback defaults and environment overrides."""
     if not config_path:
@@ -25,10 +26,7 @@ def load_config(config_path: str = None) -> dict:
 
     db_uri = os.getenv('DATABASE_URL')
     if not db_uri:
-        if os.getenv('USE_SQLITE', '0') == '1':
-            db_uri = 'sqlite:///:memory:'
-        else:
-            db_uri = f"{driver}://{user}:{password}@{host}:{port}/{name}?charset=utf8mb4"
+        db_uri = f"{driver}://{user}:{password}@{host}:{port}/{name}?charset=utf8mb4"
 
     server_cfg = config.get('server', {})
     server_host = os.getenv('SERVER_HOST', server_cfg.get('host', '127.0.0.1'))
@@ -38,6 +36,11 @@ def load_config(config_path: str = None) -> dict:
     return {
         'SQLALCHEMY_DATABASE_URI': db_uri,
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        'DB_HOST': host,
+        'DB_PORT': int(port),
+        'DB_USER': user,
+        'DB_PASSWORD': password,
+        'DB_NAME': name,
         'SERVER_HOST': server_host,
         'SERVER_PORT': server_port,
         'SERVER_DEBUG': server_debug,

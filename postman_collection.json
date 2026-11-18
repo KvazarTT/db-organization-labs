@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "7b8e1a2f-90e1-4567-b89a-334455667788",
-    "name": "SoilSense DB - Lab 4 API Collection",
-    "description": "Postman Collection for testing Laboratory Work #4 Back-End (Flask + MySQL) for soilsense_db",
+    "_postman_id": "a1b2c3d4-5678-90ef-1234-556677889900",
+    "name": "SoilSense DB - Lab 5 API Collection",
+    "description": "Postman Collection for testing Laboratory Work #5 (MySQL Stored Programs: Triggers, Procedures, Functions, Cursors) for soilsense_db",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,7 +14,7 @@
   ],
   "item": [
     {
-      "name": "1. Clients",
+      "name": "1. Clients & Irrigation Systems (Base CRUD + M:1)",
       "item": [
         {
           "name": "GET All Clients",
@@ -29,30 +29,13 @@
           }
         },
         {
-          "name": "GET Client by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/clients/1",
-              "host": ["{{base_url}}"],
-              "path": ["api", "clients", "1"]
-            }
-          }
-        },
-        {
-          "name": "POST Create Client",
+          "name": "POST Create Client (Trigger 3.a test - fails if phone ends with 00)",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Микола\",\n  \"last_name\": \"Гриценко\",\n  \"email\": \"mykola.g@example.com\",\n  \"phone\": \"+380671112233\",\n  \"registration_date\": \"2026-06-01\"\n}"
+              "raw": "{\n  \"first_name\": \"Тарас\",\n  \"last_name\": \"Сидоренко\",\n  \"email\": \"taras.s@example.com\",\n  \"phone\": \"+380671234501\",\n  \"registration_date\": \"2026-06-01\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/clients",
@@ -62,28 +45,7 @@
           }
         },
         {
-          "name": "PUT Update Client",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"phone\": \"+380679998877\",\n  \"first_name\": \"Микола-Оновлений\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/clients/1",
-              "host": ["{{base_url}}"],
-              "path": ["api", "clients", "1"]
-            }
-          }
-        },
-        {
-          "name": "DELETE Client",
+          "name": "DELETE Client (Trigger 3.d test - min cardinality 6)",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -94,23 +56,6 @@
             }
           }
         },
-        {
-          "name": "GET Client Irrigation Systems (M:1 relation)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/clients/1/irrigation-systems",
-              "host": ["{{base_url}}"],
-              "path": ["api", "clients", "1", "irrigation-systems"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "2. Irrigation Systems",
-      "item": [
         {
           "name": "GET All Irrigation Systems",
           "request": {
@@ -124,80 +69,189 @@
           }
         },
         {
-          "name": "GET Irrigation System by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/irrigation-systems/1",
-              "host": ["{{base_url}}"],
-              "path": ["api", "irrigation-systems", "1"]
-            }
-          }
-        },
-        {
-          "name": "POST Create Irrigation System",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"client_id\": 1,\n  \"system_name\": \"Автополив Розумний Сад 2.0\",\n  \"status\": \"active\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/irrigation-systems",
-              "host": ["{{base_url}}"],
-              "path": ["api", "irrigation-systems"]
-            }
-          }
-        },
-        {
-          "name": "PUT Update Irrigation System",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"system_name\": \"Автополив Модернізований\",\n  \"status\": \"maintenance\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/irrigation-systems/1",
-              "host": ["{{base_url}}"],
-              "path": ["api", "irrigation-systems", "1"]
-            }
-          }
-        },
-        {
-          "name": "DELETE Irrigation System",
+          "name": "DELETE Irrigation System (Trigger 1 FK block on id=1 / Trigger 3.f audit on id=11)",
           "request": {
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/irrigation-systems/10",
+              "raw": "{{base_url}}/api/irrigation-systems/11",
               "host": ["{{base_url}}"],
-              "path": ["api", "irrigation-systems", "10"]
+              "path": ["api", "irrigation-systems", "11"]
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "2. Maintenance Logs (Task 1: 1:M via Triggers without Physical FK)",
+      "item": [
         {
-          "name": "GET System Client (M:1 relation child to parent)",
+          "name": "GET All Maintenance Logs",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/irrigation-systems/1/client",
+              "raw": "{{base_url}}/api/maintenance-logs",
               "host": ["{{base_url}}"],
-              "path": ["api", "irrigation-systems", "1", "client"]
+              "path": ["api", "maintenance-logs"]
+            }
+          }
+        },
+        {
+          "name": "GET Maintenance Logs by System ID (1:M)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/irrigation-systems/1/maintenance-logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "irrigation-systems", "1", "maintenance-logs"]
+            }
+          }
+        },
+        {
+          "name": "POST Create Maintenance Log (ORM + Trigger FK check)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_id\": 2,\n  \"technician_name\": \"Петро Іваненко\",\n  \"description\": \"Перевірка тиску води\",\n  \"service_cost\": 350.00,\n  \"maintenance_date\": \"2026-06-10\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/maintenance-logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "maintenance-logs"]
+            }
+          }
+        },
+        {
+          "name": "PUT Update Maintenance Log",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_cost\": 400.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/maintenance-logs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "maintenance-logs", "1"]
+            }
+          }
+        },
+        {
+          "name": "DELETE Maintenance Log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/maintenance-logs/6",
+              "host": ["{{base_url}}"],
+              "path": ["api", "maintenance-logs", "6"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Stored Programs (Procedures, Function, Cursor, Audit)",
+      "item": [
+        {
+          "name": "2.a POST sp_insert_maintenance_log (Parameterized Insert)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_id\": 3,\n  \"technician_name\": \"Олена Козак\",\n  \"description\": \"Планова заміна фільтра через SP\",\n  \"service_cost\": 525.00,\n  \"maintenance_date\": \"2026-06-12\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/maintenance-logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "maintenance-logs"]
+            }
+          }
+        },
+        {
+          "name": "2.b POST sp_link_client_irrigation_system (M:M Link by Names)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Анна\",\n  \"last_name\": \"Шевченко\",\n  \"system_name\": \"Полив Теплиця 1\",\n  \"access_role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/client-system-access",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "client-system-access"]
+            }
+          }
+        },
+        {
+          "name": "2.b GET M:M Client-System Access List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/client-system-access",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "client-system-access"]
+            }
+          }
+        },
+        {
+          "name": "2.c POST sp_insert_noname_systems (10 rows Noname5..14)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_num\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/noname-systems",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "noname-systems"]
+            }
+          }
+        },
+        {
+          "name": "2.d GET sp_get_maintenance_cost_stats (UDF MAX/MIN/SUM/AVG)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/maintenance-cost-stats?op=MAX",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "maintenance-cost-stats"],
+              "query": [{"key": "op", "value": "MAX"}]
+            }
+          }
+        },
+        {
+          "name": "2.e.i POST sp_split_clients_with_cursor (Dynamic 2 Tables + Cursor)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/split-clients-cursor",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "split-clients-cursor"]
+            }
+          }
+        },
+        {
+          "name": "3.f GET Deletion Audit Logs (Trigger 3.f)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/stored-programs/deletion-audit-logs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stored-programs", "deletion-audit-logs"]
             }
           }
         }

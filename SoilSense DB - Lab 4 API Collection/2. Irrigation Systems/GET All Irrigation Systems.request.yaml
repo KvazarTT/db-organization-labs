@@ -1,4 +1,0 @@
-$kind: http-request
-url: "{{base_url}}/api/irrigation-systems"
-method: GET
-order: 1000

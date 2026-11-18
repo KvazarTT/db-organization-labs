@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='lab4-backend',
+    name='lab5-backend',
     version='1.0.0',
     packages=find_packages(),
     install_requires=[
@@ -12,5 +12,5 @@ setup(
         'PyYAML>=6.0.0',
     ],
     author='Matvii Ivkov',
-    description='Lab 4 Back-End Flask Project with MySQL integration for soilsense_db',
+    description='Lab 5 Back-End Flask Project with MySQL Stored Programs (Triggers, Procedures, Functions, Cursors) for soilsense_db',
 )

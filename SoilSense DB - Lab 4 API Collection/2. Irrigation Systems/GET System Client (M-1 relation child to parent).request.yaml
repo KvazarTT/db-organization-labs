@@ -1,5 +1,0 @@
-$kind: http-request
-name: GET System Client (M:1 relation child to parent)
-url: "{{base_url}}/api/irrigation-systems/1/client"
-method: GET
-order: 6000

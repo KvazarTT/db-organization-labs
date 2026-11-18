@@ -1,5 +1,6 @@
 from typing import List, Optional, Any
 
+
 class GeneralService:
     _dao = None
 

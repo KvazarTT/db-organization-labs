@@ -1,23 +1,49 @@
-import os
 from pathlib import Path
 import docx
-from docx.shared import Pt, Inches, Cm, RGBColor
+from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+
+
+def set_cell_margins(cell, top=60, bottom=60, left=100, right=100):
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcMar = parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'<w:top w:w="{top}" w:type="dxa"/>'
+        f'<w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'<w:left w:w="{left}" w:type="dxa"/>'
+        f'<w:right w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    )
+    tcPr.append(tcMar)
+
+
+def set_table_borders(table, color="CCCCCC"):
+    tblPr = table._tbl.tblPr
+    borders = parse_xml(
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'<w:top w:val="single" w:sz="4" w:space="0" w:color="{color}"/>'
+        f'<w:bottom w:val="single" w:sz="4" w:space="0" w:color="{color}"/>'
+        f'<w:insideH w:val="single" w:sz="4" w:space="0" w:color="{color}"/>'
+        f'<w:left w:val="none"/>'
+        f'<w:right w:val="none"/>'
+        f'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="E5E5E5"/>'
+        f'</w:tblBorders>'
+    )
+    tblPr.append(borders)
+
 
 def create_report():
     doc = docx.Document()
-    
-    # Page setup
+
     for sec in doc.sections:
         sec.top_margin = Cm(2.0)
         sec.bottom_margin = Cm(2.0)
         sec.left_margin = Cm(2.0)
         sec.right_margin = Cm(2.0)
 
-    # Base styling
     normal_style = doc.styles['Normal']
     normal_style.font.name = 'Times New Roman'
     normal_style.font.size = Pt(12)
@@ -39,306 +65,462 @@ def create_report():
 
     def add_code_block(code_text):
         p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(4)
+        p.paragraph_format.space_before = Pt(3)
         p.paragraph_format.space_after = Pt(6)
         p.paragraph_format.line_spacing = 1.0
+        pPr = p._p.get_or_add_pPr()
+        shd = parse_xml(f'<w:shd {nsdecls("w")} w:val="clear" w:color="auto" w:fill="F7F7F7"/>')
+        pPr.append(shd)
         run = p.add_run(code_text)
         run.font.name = 'Consolas'
-        run.font.size = Pt(9.5)
-        run.font.color.rgb = RGBColor(30, 30, 30)
+        run.font.size = Pt(9.0)
+        run.font.color.rgb = RGBColor(25, 25, 25)
 
-    # 1. Header / Title Page
+    def add_styled_table(headers, rows, widths, center_cols=()):
+        table = doc.add_table(rows=1, cols=len(headers))
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.autofit = False
+        set_table_borders(table)
+
+        hdr_cells = table.rows[0].cells
+        for i, name in enumerate(headers):
+            hdr_cells[i].text = name
+            p = hdr_cells[i].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_before = Pt(2)
+            r = p.runs[0]
+            r.bold = True
+            r.font.name = 'Times New Roman'
+            r.font.size = Pt(11)
+            shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="E0E0E0"/>')
+            hdr_cells[i]._tc.get_or_add_tcPr().append(shading)
+            set_cell_margins(hdr_cells[i])
+
+        for row_data in rows:
+            row = table.add_row()
+            for idx, text_val in enumerate(row_data):
+                cell = row.cells[idx]
+                cell.text = text_val
+                p = cell.paragraphs[0]
+                p.paragraph_format.line_spacing = 1.0
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.space_before = Pt(2)
+                if idx in center_cols:
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for r in p.runs:
+                    r.font.name = 'Times New Roman'
+                    r.font.size = Pt(10.5)
+                set_cell_margins(cell)
+
+        for row in table.rows:
+            for idx, width in enumerate(widths):
+                row.cells[idx].width = width
+        return table
+
+    # 1. Title Page
     add_p('МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12, space_after=2)
     add_p('НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ "ЛЬВІВСЬКА ПОЛІТЕХНІКА"', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12, space_after=2)
     add_p('Інститут комп’ютерних технологій, автоматики та метрології', WD_ALIGN_PARAGRAPH.CENTER, size=12, space_after=2)
-    add_p('Кафедра "Комп\'ютеризовані системи автоматики"', WD_ALIGN_PARAGRAPH.CENTER, size=12, space_after=24)
+    add_p('Кафедра "Комп\'ютеризовані системи автоматики"', WD_ALIGN_PARAGRAPH.CENTER, size=12, space_after=18)
+
+    logo_path = Path(r'C:\Users\matvi\.gemini\antigravity\brain\8344d4bf-29db-4ccb-934a-91ed63aac9bb\scratch\lpnu_logo.png')
+    if logo_path.exists():
+        p_logo = doc.add_paragraph()
+        p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_logo.paragraph_format.space_after = Pt(18)
+        p_logo.add_run().add_picture(str(logo_path), width=Cm(4.2))
 
     add_p('ЗВІТ', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=6)
-    add_p('про виконання лабораторної роботи № 4', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=4)
-    add_p('«Реалізація Back-End проекту з використанням Flask+Python та підключенням до MySQL»', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=4)
+    add_p('про виконання лабораторної роботи № 5', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=4)
+    add_p(
+        '«Збережені програми в MySQL (тригери, процедури, функції, курсори) та інтеграція з Flask Back-End»',
+        WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=4
+    )
     add_p('з навчальної дисципліни: «Організація баз даних та знань»', WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=12, space_after=40)
 
     p_info = doc.add_paragraph()
     p_info.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    p_info.paragraph_format.space_after = Pt(50)
+    p_info.paragraph_format.space_after = Pt(48)
     p_info.paragraph_format.line_spacing = 1.15
     r = p_info.add_run('Виконав:\nстудент групи ІР-22\nІвков Матвій\n\nПрийняв:\nАсистент кафедри КСА\nВолос І.В.')
     r.font.name = 'Times New Roman'
     r.font.size = Pt(12)
 
-    add_p('Львів — 2026', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12, space_after=18)
+    add_p('Львів — 2026', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12, space_after=12)
     doc.add_page_break()
 
     # 2. Assignment Section
     add_p('Завдання до лабораторної роботи', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=10)
-    
     tasks = [
-        '1. Для спроектованої в лабораторній роботі № 3 бази даних soilsense_db реалізувати Back-End проект із використанням мікрофреймворка Flask (Python) та підключенням до СКБД MySQL.',
-        '2. Забезпечити чітку багатошарову архітектуру проекту (Layered Architecture): конфігурація (config/app.yml), контролери (controller), доступ до даних (dao), моделі/сутності (domain), маршрути (route), сервіси бізнес-логіки (service), модульні тести (tests), головний файл запуску (app.py), SQL-скрипт (data.sql) та перелік залежностей (requirements.txt).',
-        '3. Web-контролери повинні опрацьовувати вхідні HTTP-запити для виконання повного циклу CRUD-операцій (Create, Read, Update, Delete) та повертати серіалізовані дані у форматі DTO-об’єктів (Data Transfer Object).',
-        '4. Сервісний рівень (Service Layer) повинен містити основну бізнес-логіку взаємодії та делегування операцій до рівня доступу до даних.',
-        '5. Рівень DAO (Data Access Object) повинен інкапсулювати методи виконання запитів до бази даних за допомогою ORM SQLAlchemy.',
-        '6. Клієнтську роботу розробленого REST API протестувати за допомогою інструменту Postman:\n   • отримання вибірки даних із таблиць (GET);\n   • вставка нових записів (POST);\n   • оновлення наявних даних (PUT);\n   • видалення даних за ідентифікатором (DELETE);\n   • вибірка пов’язаних даних зі сторони зв’язку M:1 (для клієнта отримати всі призначені йому системи автополиву, а для системи — отримати дані її власника).',
-        '7. Підготувати проект до розгортання та завантаження у репозиторій GitHub.'
+        'На базі попередньої роботи (back-end with Flask, база даних soilsense_db) реалізувати в MySQL програмні конструкції (тригери, процедури, функції, курсори) та забезпечити виклик збережених процедур через контролери бекенду:',
+        '1. Додати до БД 1 додаткову таблицю (maintenance_logs) і зв’язати її з існуючою таблицею (irrigation_systems) зв’язком 1:M, використавши тригери для забезпечення цілісності замість фізичного зовнішнього ключа.',
+        '2. Збережені процедури та функції:\n'
+        '   a. Параметризована вставка нових значень у таблицю maintenance_logs (sp_insert_maintenance_log).\n'
+        '   b. Реалізація зв’язку M:M між таблицями clients та irrigation_systems у стикувальну таблицю client_system_access за реально-існуючими значеннями first_name, last_name та system_name (sp_link_client_irrigation_system).\n'
+        '   c. Пакетна вставка 10 рядків у форматі <Noname+№> (Noname5, Noname6, ..., Noname14) у таблицю irrigation_systems (sp_insert_noname_systems).\n'
+        '   d. Користувацька функція для обчислення MAX, MIN, SUM або AVG стовпця service_cost таблиці maintenance_logs (fn_get_maintenance_cost_stat) та процедура її виклику у SELECT (sp_get_maintenance_cost_stats).\n'
+        '   e (варіант i). Процедура з курсором (sp_split_clients_with_cursor), яка динамічно створює 2 таблиці зі штампом часу за структурою clients і випадковим чином пострічково копіює туди дані з таблиці clients.',
+        '3. Написати 3 довільні тригери для таблиць поточної БД:\n'
+        '   a. Значення стовпця phone у таблиці clients не може закінчуватися двома нулями.\n'
+        '   d. Мінімальна кардинальність 6 стрічок для таблиці clients.\n'
+        '   f. Таблиця-журнал deletion_audit_log для фіксації логів зі штампом часу при видаленні рядків з irrigation_systems.'
     ]
     for t in tasks:
         add_p(t, WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=5)
 
-    add_p('', space_after=10)
+    add_p('', space_after=6)
 
-    # 3. Architecture & Entities
+    # 3. Implementation
     add_p('Хід виконання роботи', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=10)
 
-    add_p('1. Вибір сутностей бази даних та структура проекту', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
+    add_p('1. Розширення бази даних soilsense_db та структура проєкту lab5', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
     add_p(
-        'Для реалізації бекенд-частини відповідно до узгодження з викладачем було обрано дві ключові пов’язані сутності бази даних soilsense_db: '
-        'таблицю клієнтів (clients) та таблицю систем автополиву (irrigation_systems). '
-        'Між даними сутностями реалізовано зв’язок 1:M (один клієнт може мати декілька систем поливу; '
-        'зі сторони систем автополиву — це зв’язок M:1 із зовнішнім ключем client_id, який посилається на clients.id із каскадним видаленням ON DELETE CASCADE).',
+        'На основі проєкту lab4 створено нову робочу директорію lab5/. Базу даних soilsense_db розширено трьома таблицями, '
+        'опис яких наведено у таблиці 1.',
         WD_ALIGN_PARAGRAPH.JUSTIFY
     )
 
-    add_p('Структура створеного проекту lab4:', WD_ALIGN_PARAGRAPH.LEFT, bold=True, space_after=4)
+    add_p('Таблиця 1. Нові таблиці бази даних soilsense_db (Лабораторна робота № 5)', WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=4)
+    add_styled_table(
+        ['Назва таблиці', 'Ключові стовпці', 'Призначення та зв’язки'],
+        [
+            ('maintenance_logs', 'id, system_id, technician_name, description, service_cost, maintenance_date',
+             'Журнал техобслуговування. Зв’язок 1:M з irrigation_systems реалізовано тригерами без фізичного FOREIGN KEY.'),
+            ('client_system_access', 'id, client_id, system_id, access_role, assigned_at',
+             'Стикувальна таблиця M:M між clients та irrigation_systems із унікальним ключем (client_id, system_id).'),
+            ('deletion_audit_log', 'id, table_name, record_id, deleted_details, deleted_at',
+             'Таблиця-журнал аудиту видалень із фіксацією штампа часу тригером AFTER DELETE.')
+        ],
+        [Cm(3.8), Cm(5.5), Cm(7.7)]
+    )
+
+    add_p('', space_after=4)
+    add_p('Структура створеного проєкту lab5:', WD_ALIGN_PARAGRAPH.LEFT, bold=True, space_after=4)
     struct_text = (
-        "lab4/\n"
+        "lab5/\n"
         "├── config/\n"
-        "│   └── app.yml                     # Параметри з'єднання з MySQL та налаштування хоста\n"
+        "│   └── app.yml                             # Налаштування підключення до MySQL (soilsense_db)\n"
         "├── my_project/\n"
         "│   ├── auth/\n"
-        "│   │   ├── controller/             # Web-контролери для DTO-обміну\n"
-        "│   │   │   ├── general_controller.py\n"
+        "│   │   ├── controller/\n"
+        "│   │   │   ├── general_controller.py       # Базовий контролер + форматування помилок БД/тригерів\n"
         "│   │   │   ├── client_controller.py\n"
-        "│   │   │   └── irrigation_system_controller.py\n"
-        "│   │   ├── dao/                    # DAO для виконання запитів через SQLAlchemy ORM\n"
-        "│   │   │   ├── general_dao.py\n"
+        "│   │   │   ├── irrigation_system_controller.py\n"
+        "│   │   │   ├── maintenance_log_controller.py\n"
+        "│   │   │   └── stored_program_controller.py # Контролер виклику збережених програм MySQL\n"
+        "│   │   ├── dao/\n"
+        "│   │   │   ├── general_dao.py              # Загальний CRUD із безпечним rollback при помилках тригерів\n"
         "│   │   │   ├── client_dao.py\n"
-        "│   │   │   └── irrigation_system_dao.py\n"
-        "│   │   ├── domain/                 # ORM-моделі та методи put_into_dto / create_from_dto\n"
+        "│   │   │   ├── irrigation_system_dao.py\n"
+        "│   │   │   ├── maintenance_log_dao.py\n"
+        "│   │   │   └── stored_program_dao.py       # Виконання CALL sp_* через SQLAlchemy text()\n"
+        "│   │   ├── domain/\n"
         "│   │   │   ├── client.py\n"
-        "│   │   │   └── irrigation_system.py\n"
-        "│   │   ├── route/                  # Flask Blueprints маршрутів REST API\n"
+        "│   │   │   ├── irrigation_system.py\n"
+        "│   │   │   ├── maintenance_log.py          # ORM-модель без фізичного ForeignKey\n"
+        "│   │   │   ├── client_system_access.py     # ORM-модель стикувальної таблиці M:M\n"
+        "│   │   │   └── deletion_audit_log.py       # ORM-модель журналу видалень\n"
+        "│   │   ├── route/\n"
         "│   │   │   ├── client_route.py\n"
-        "│   │   │   └── irrigation_system_route.py\n"
-        "│   │   └── service/                # Сервіси бізнес-логіки\n"
+        "│   │   │   ├── irrigation_system_route.py\n"
+        "│   │   │   ├── maintenance_log_route.py    # Маршрути /api/maintenance-logs\n"
+        "│   │   │   └── stored_program_route.py     # Маршрути /api/stored-programs/*\n"
+        "│   │   └── service/\n"
         "│   │       ├── general_service.py\n"
         "│   │       ├── client_service.py\n"
-        "│   │       └── irrigation_system_service.py\n"
-        "│   ├── ui/                         # Допоміжний пакет представлення\n"
-        "│   ├── utils/                      # Модуль завантаження конфігурації (config_loader.py)\n"
-        "│   └── __init__.py                 # Спільний екземпляр SQLAlchemy db\n"
+        "│   │       ├── irrigation_system_service.py\n"
+        "│   │       ├── maintenance_log_service.py\n"
+        "│   │       └── stored_program_service.py\n"
+        "│   ├── utils/\n"
+        "│   │   ├── config_loader.py\n"
+        "│   │   └── db_initializer.py               # Парсер DELIMITER та розгортання data.sql\n"
+        "│   └── __init__.py\n"
         "├── tests/\n"
-        "│   └── test_api.py                 # 5 комплексних тестів для PyTest (CRUD + M:1 зв'язок)\n"
-        "├── app.py                          # Точка входу додатку, фабрика create_app()\n"
-        "├── data.sql                        # Сценарій створення та наповнення БД soilsense_db\n"
-        "├── postman_collection.json         # Колекція 12 запитів для тестування у Postman\n"
-        "├── requirements.txt                # Залежності проекту\n"
-        "└── setup.py                        # Метадані пакета\n"
+        "│   └── test_api.py                         # 8 інтеграційних тестів PyTest для MySQL\n"
+        "├── app.py                                  # Точка входу Flask та перевірка готовності БД\n"
+        "├── data.sql                                # DDL, початкові дані, тригери, процедури, функція, курсор\n"
+        "├── generate_report.py                      # Скрипт генерації цього звіту\n"
+        "├── postman_collection.json                 # Оновлена колекція запитів Postman\n"
+        "├── README.md\n"
+        "├── requirements.txt\n"
+        "└── setup.py"
     )
     add_code_block(struct_text)
 
-    # 4. Endpoints Table
-    add_p('2. Реалізовані маршрути REST API', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
-    add_p('Нижче у таблиці 1 наведено перелік усіх розроблених кінцевих точок (endpoints) із відповідними методами, адресами та їх функціональним призначенням.', WD_ALIGN_PARAGRAPH.JUSTIFY)
-
-    add_p('Таблиця 1. Специфікація REST API маршрутів', WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=4)
-
-    table = doc.add_table(rows=1, cols=4)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
-
-    hdr_cells = table.rows[0].cells
-    headers = ['HTTP Метод', 'Шлях (URL)', 'Опис операції', 'Код статусу']
-    widths = [Cm(2.6), Cm(6.5), Cm(5.5), Cm(2.4)]
-    for i, name in enumerate(headers):
-        hdr_cells[i].text = name
-        hdr_cells[i].paragraphs[0].runs[0].bold = True
-        hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        shading = parse_xml(r'<w:shd {} w:fill="E0E0E0"/>'.format(nsdecls('w')))
-        hdr_cells[i]._tc.get_or_add_tcPr().append(shading)
-
-    api_rows = [
-        ('GET', '/api/clients', 'Отримання списку всіх клієнтів', '200 OK'),
-        ('GET', '/api/clients/<id>', 'Отримання інформації про клієнта за ID', '200 OK / 404'),
-        ('POST', '/api/clients', 'Створення нового запису клієнта', '201 Created / 400'),
-        ('PUT', '/api/clients/<id>', 'Оновлення існуючого клієнта', '200 OK / 404'),
-        ('DELETE', '/api/clients/<id>', 'Видалення клієнта (каскадне видалення систем)', '200 OK / 404'),
-        ('GET', '/api/clients/<id>/irrigation-systems', 'Вибірка M:1: усі системи поливу вказаного клієнта', '200 OK / 404'),
-        ('GET', '/api/irrigation-systems', 'Отримання всіх систем автополиву', '200 OK'),
-        ('GET', '/api/irrigation-systems/<id>', 'Отримання системи поливу за ID', '200 OK / 404'),
-        ('POST', '/api/irrigation-systems', 'Створення нової системи автополиву', '201 Created / 400'),
-        ('PUT', '/api/irrigation-systems/<id>', 'Оновлення параметрів системи автополиву', '200 OK / 404'),
-        ('DELETE', '/api/irrigation-systems/<id>', 'Видалення системи автополиву за ID', '200 OK / 404'),
-        ('GET', '/api/irrigation-systems/<id>/client', 'Вибірка M:1: отримання даних клієнта-власника системи', '200 OK / 404')
-    ]
-
-    for row_data in api_rows:
-        row = table.add_row()
-        for idx, text in enumerate(row_data):
-            cell = row.cells[idx]
-            cell.text = text
-            cell.paragraphs[0].paragraph_format.line_spacing = 1.0
-            cell.paragraphs[0].paragraph_format.space_after = Pt(2)
-            cell.paragraphs[0].paragraph_format.space_before = Pt(2)
-            if idx in (0, 3):
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    for row in table.rows:
-        for idx, width in enumerate(widths):
-            row.cells[idx].width = width
-
-    add_p('', space_after=10)
-
-    # 5. Code & Implementation details
-    add_p('3. Програмна реалізація ключових модулів', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
-    
-    add_p('3.1. Доменна модель Client (my_project/auth/domain/client.py):', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-    add_code_block(
-        "class Client(db.Model):\n"
-        "    __tablename__ = 'clients'\n"
-        "    id = db.Column(db.Integer, primary_key=True, autoincrement=True)\n"
-        "    first_name = db.Column(db.String(50), nullable=False)\n"
-        "    last_name = db.Column(db.String(50), nullable=False)\n"
-        "    email = db.Column(db.String(100), unique=True, nullable=False)\n"
-        "    phone = db.Column(db.String(20), nullable=True)\n"
-        "    registration_date = db.Column(db.Date, nullable=False, default=date.today)\n"
-        "    irrigation_systems = db.relationship('IrrigationSystem', backref='client', lazy=True, cascade='all, delete-orphan')\n"
-        "\n"
-        "    def put_into_dto(self) -> dict:\n"
-        "        return {\n"
-        "            'id': self.id, 'first_name': self.first_name, 'last_name': self.last_name,\n"
-        "            'email': self.email, 'phone': self.phone,\n"
-        "            'registration_date': self.registration_date.isoformat() if self.registration_date else None\n"
-        "        }\n"
-    )
-
-    add_p('3.2. Рівень доступу до даних GeneralDAO (my_project/auth/dao/general_dao.py):', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-    add_code_block(
-        "class GeneralDAO:\n"
-        "    _model = None\n"
-        "    def __init__(self, session=None):\n"
-        "        self._session = session or db.session\n"
-        "    def find_all(self):\n"
-        "        return self._session.query(self._model).all()\n"
-        "    def find_by_id(self, key: int):\n"
-        "        return self._session.get(self._model, key)\n"
-        "    def create(self, obj):\n"
-        "        self._session.add(obj)\n"
-        "        self._session.commit()\n"
-        "        return obj\n"
-        "    def update(self, key: int, update_data: dict):\n"
-        "        obj = self.find_by_id(key)\n"
-        "        if not obj: return None\n"
-        "        for field, value in update_data.items():\n"
-        "            if hasattr(obj, field) and field != 'id': setattr(obj, field, value)\n"
-        "        self._session.commit()\n"
-        "        return obj\n"
-        "    def delete(self, key: int) -> bool:\n"
-        "        obj = self.find_by_id(key)\n"
-        "        if not obj: return False\n"
-        "        self._session.delete(obj)\n"
-        "        self._session.commit()\n"
-        "        return True\n"
-    )
-
-    add_p('3.3. Реалізація вибірки за зв’язком M:1 (my_project/auth/controller/client_controller.py):', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-    add_code_block(
-        "class ClientController(GeneralController):\n"
-        "    def __init__(self):\n"
-        "        self._service = ClientService()\n"
-        "\n"
-        "    def get_irrigation_systems(self, client_id: int):\n"
-        "        client = self._service.find_by_id(client_id)\n"
-        "        if not client:\n"
-        "            return {'message': f'Client with id {client_id} not found'}, 404\n"
-        "        systems = self._service.get_irrigation_systems_by_client_id(client_id)\n"
-        "        return [system.put_into_dto() for system in systems], 200\n"
-    )
-
-    # 6. Testing & Results
-    add_p('4. Результати тестування через Postman та PyTest', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
+    # 4. REST API table
+    add_p('2. Реалізовані маршрути REST API (доповнення до Lab 4)', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
     add_p(
-        'Працездатність розробленого Back-End проекту перевірено за двома напрямками: автоматизованим набором юніт-тестів та інтерактивним тестуванням через Postman.',
+        'Окрім базових маршрутів /api/clients та /api/irrigation-systems із лабораторної роботи № 4, '
+        'додано 13 нових кінцевих точок для роботи з maintenance_logs та виклику збережених програм MySQL (таблиця 2).',
         WD_ALIGN_PARAGRAPH.JUSTIFY
     )
 
-    add_p('4.1. Результати запуску автоматизованого набору тестів (pytest):', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-    test_run_output = (
-        "============================= test session starts =============================\n"
-        "platform win32 -- Python 3.13.7, pytest-9.2.0, pluggy-1.7.0\n"
-        "rootdir: C:\\git\\LLM2.0\\lab4\n"
-        "collected 5 items\n\n"
-        "lab4/tests/test_api.py::test_index_endpoint PASSED                       [ 20%]\n"
-        "lab4/tests/test_api.py::test_client_crud PASSED                          [ 40%]\n"
-        "lab4/tests/test_api.py::test_irrigation_system_crud PASSED               [ 60%]\n"
-        "lab4/tests/test_api.py::test_m_to_1_relationship PASSED                  [ 80%]\n"
-        "lab4/tests/test_api.py::test_validation_and_errors PASSED                [100%]\n\n"
-        "============================== 5 passed in 1.07s ==============================\n"
+    add_p('Таблиця 2. Специфікація нових REST API маршрутів (Лабораторна робота № 5)', WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=4)
+    add_styled_table(
+        ['HTTP Метод', 'Шлях (URL)', 'Призначення / Об’єкт MySQL', 'Код статусу'],
+        [
+            ('GET', '/api/maintenance-logs', 'Отримання всіх записів техобслуговування', '200 OK'),
+            ('GET', '/api/maintenance-logs/<id>', 'Отримання запису обслуговування за ID', '200 OK / 404'),
+            ('POST', '/api/maintenance-logs', 'Створення запису (тригерна перевірка system_id)', '201 / 400'),
+            ('PUT', '/api/maintenance-logs/<id>', 'Оновлення запису (тригерна перевірка system_id)', '200 / 400 / 404'),
+            ('DELETE', '/api/maintenance-logs/<id>', 'Видалення запису техобслуговування', '200 / 404'),
+            ('GET', '/api/irrigation-systems/<id>/maintenance-logs', 'Вибірка 1:M усіх логів обслуговування системи', '200 / 404'),
+            ('POST', '/api/stored-programs/maintenance-logs', 'П. 2.a: виклик sp_insert_maintenance_log', '201 / 400'),
+            ('POST', '/api/stored-programs/client-system-access', 'П. 2.b: виклик sp_link_client_irrigation_system (M:M)', '201 / 400'),
+            ('GET', '/api/stored-programs/client-system-access', 'Перегляд стикувальної таблиці client_system_access', '200 OK'),
+            ('POST', '/api/stored-programs/noname-systems', 'П. 2.c: виклик sp_insert_noname_systems (10 рядків)', '201 / 400'),
+            ('GET', '/api/stored-programs/maintenance-cost-stats?op=...', 'П. 2.d: виклик sp_get_maintenance_cost_stats та UDF', '200 / 400'),
+            ('POST', '/api/stored-programs/split-clients-cursor', 'П. 2.e.i: виклик sp_split_clients_with_cursor', '201 / 400'),
+            ('GET', '/api/stored-programs/deletion-audit-logs', 'П. 3.f: перегляд журналу видалень deletion_audit_log', '200 OK')
+        ],
+        [Cm(2.2), Cm(6.7), Cm(5.6), Cm(2.5)],
+        center_cols=(0, 3)
     )
-    add_code_block(test_run_output)
 
-    add_p('4.2. Приклади HTTP-запитів та відповідей у Postman:', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-    postman_examples = (
-        "1. Запит: GET http://127.0.0.1:5000/api/clients/1\n"
-        "Статус: 200 OK\n"
-        "Тіло відповіді (JSON DTO):\n"
-        "{\n"
-        '  "id": 1,\n'
-        '  "first_name": "Олег",\n'
-        '  "last_name": "Петренко",\n'
-        '  "email": "oleg.p@example.com",\n'
-        '  "phone": "+380501234567",\n'
-        '  "registration_date": "2025-05-10"\n'
-        "}\n\n"
-        "2. Запит: GET http://127.0.0.1:5000/api/clients/1/irrigation-systems (M:1 зв'язок)\n"
-        "Статус: 200 OK\n"
-        "Тіло відповіді (JSON DTO):\n"
-        "[\n"
-        "  {\n"
-        '    "id": 1,\n'
-        '    "client_id": 1,\n'
-        '    "system_name": "Полив Теплиця 1",\n'
-        '    "status": "active"\n'
-        "  },\n"
-        "  {\n"
-        '    "id": 2,\n'
-        '    "client_id": 1,\n'
-        '    "system_name": "Полив Відкритий Ґрунт",\n'
-        '    "status": "active"\n'
-        "  }\n"
-        "]\n\n"
-        "3. Запит: POST http://127.0.0.1:5000/api/clients\n"
-        "Тіло запиту: {\"first_name\": \"Микола\", \"last_name\": \"Гриценко\", \"email\": \"mykola.g@example.com\", \"phone\": \"+380671112233\"}\n"
-        "Статус: 201 Created\n"
-        "Відповідь: {\"id\": 11, \"first_name\": \"Микола\", \"last_name\": \"Гриценко\", \"email\": \"mykola.g@example.com\", \"phone\": \"+380671112233\", \"registration_date\": \"2026-11-09\"}\n\n"
-        "4. Запит: PUT http://127.0.0.1:5000/api/clients/11\n"
-        "Тіло запиту: {\"phone\": \"+380679998877\"}\n"
-        "Статус: 200 OK\n"
-        "Відповідь: {\"id\": 11, \"phone\": \"+380679998877\", ...}\n\n"
-        "5. Запит: DELETE http://127.0.0.1:5000/api/clients/11\n"
-        "Статус: 200 OK\n"
-        "Відповідь: {\"message\": \"Record with id 11 successfully deleted\"}\n"
+    add_p('', space_after=6)
+
+    # 5. SQL and Backend Implementation
+    add_p('3. Програмна реалізація тригерів, процедур, функції та курсора', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
+
+    add_p('3.1. Забезпечення цілісності зв’язку 1:M за допомогою тригерів (Пункт 1)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_p(
+        'Таблиця maintenance_logs не містить фізичного FOREIGN KEY. Цілісність посилань на irrigation_systems(id) '
+        'забезпечують чотири тригери: BEFORE INSERT та BEFORE UPDATE на maintenance_logs і BEFORE DELETE / BEFORE UPDATE на irrigation_systems.',
+        WD_ALIGN_PARAGRAPH.JUSTIFY
     )
-    add_code_block(postman_examples)
+    add_code_block(
+        "CREATE TRIGGER trg_maintenance_logs_before_insert_fk\n"
+        "BEFORE INSERT ON maintenance_logs\n"
+        "FOR EACH ROW\n"
+        "BEGIN\n"
+        "    IF NOT EXISTS (SELECT 1 FROM irrigation_systems WHERE id = NEW.system_id) THEN\n"
+        "        SIGNAL SQLSTATE '45000'\n"
+        "        SET MESSAGE_TEXT = 'FK Trigger Error: irrigation_systems record with specified system_id does not exist';\n"
+        "    END IF;\n"
+        "END //\n\n"
+        "CREATE TRIGGER trg_irrigation_systems_before_delete_fk\n"
+        "BEFORE DELETE ON irrigation_systems\n"
+        "FOR EACH ROW\n"
+        "BEGIN\n"
+        "    IF EXISTS (SELECT 1 FROM maintenance_logs WHERE system_id = OLD.id) THEN\n"
+        "        SIGNAL SQLSTATE '45000'\n"
+        "        SET MESSAGE_TEXT = 'FK Trigger Error: Cannot delete irrigation_system with existing maintenance_logs';\n"
+        "    END IF;\n"
+        "END //"
+    )
+
+    add_p('3.2. Збережені процедури вставки, зв’язку M:M та пакетного наповнення (Пункти 2.a, 2.b, 2.c)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "-- 2.b: Реалізація зв'язку M:M у стикувальну таблицю за іменами клієнта та системи\n"
+        "CREATE PROCEDURE sp_link_client_irrigation_system(\n"
+        "    IN p_first_name VARCHAR(50), IN p_last_name VARCHAR(50),\n"
+        "    IN p_system_name VARCHAR(100), IN p_access_role VARCHAR(30)\n"
+        ")\n"
+        "BEGIN\n"
+        "    DECLARE v_client_id INT DEFAULT NULL;\n"
+        "    DECLARE v_system_id INT DEFAULT NULL;\n"
+        "    SELECT id INTO v_client_id FROM clients WHERE first_name = p_first_name AND last_name = p_last_name LIMIT 1;\n"
+        "    IF v_client_id IS NULL THEN\n"
+        "        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Client with specified first_name and last_name not found';\n"
+        "    END IF;\n"
+        "    SELECT id INTO v_system_id FROM irrigation_systems WHERE system_name = p_system_name LIMIT 1;\n"
+        "    IF v_system_id IS NULL THEN\n"
+        "        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Irrigation system with specified system_name not found';\n"
+        "    END IF;\n"
+        "    INSERT INTO client_system_access (client_id, system_id, access_role)\n"
+        "    VALUES (v_client_id, v_system_id, COALESCE(NULLIF(TRIM(p_access_role), ''), 'operator'))\n"
+        "    ON DUPLICATE KEY UPDATE access_role = VALUES(access_role), assigned_at = CURRENT_TIMESTAMP;\n"
+        "    SELECT csa.id, csa.client_id, c.first_name, c.last_name, csa.system_id, s.system_name, csa.access_role, csa.assigned_at\n"
+        "    FROM client_system_access csa\n"
+        "    JOIN clients c ON c.id = csa.client_id JOIN irrigation_systems s ON s.id = csa.system_id\n"
+        "    WHERE csa.client_id = v_client_id AND csa.system_id = v_system_id;\n"
+        "END //\n\n"
+        "-- 2.c: Пакет вставки 10 рядків у форматі <Noname+№>\n"
+        "CREATE PROCEDURE sp_insert_noname_systems(IN p_start_num INT)\n"
+        "BEGIN\n"
+        "    DECLARE v_num INT DEFAULT IF(p_start_num IS NULL OR p_start_num <= 0, 5, p_start_num);\n"
+        "    DECLARE v_counter INT DEFAULT 0;\n"
+        "    DECLARE v_client_id INT;\n"
+        "    DECLARE v_first_id INT DEFAULT 0;\n"
+        "    DECLARE v_last_id INT DEFAULT 0;\n"
+        "    SELECT MIN(id) INTO v_client_id FROM clients;\n"
+        "    WHILE v_counter < 10 DO\n"
+        "        INSERT INTO irrigation_systems (client_id, system_name, status)\n"
+        "        VALUES (v_client_id, CONCAT('Noname', v_num + v_counter), 'active');\n"
+        "        IF v_counter = 0 THEN SET v_first_id = LAST_INSERT_ID(); END IF;\n"
+        "        SET v_last_id = LAST_INSERT_ID();\n"
+        "        SET v_counter = v_counter + 1;\n"
+        "    END WHILE;\n"
+        "    SELECT id, client_id, system_name, status FROM irrigation_systems WHERE id BETWEEN v_first_id AND v_last_id;\n"
+        "END //"
+    )
+
+    add_p('3.3. Користувацька функція агрегації та процедура її виклику у SELECT (Пункт 2.d)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "CREATE FUNCTION fn_get_maintenance_cost_stat(p_stat_type VARCHAR(10))\n"
+        "RETURNS DECIMAL(12,2) DETERMINISTIC READS SQL DATA\n"
+        "BEGIN\n"
+        "    DECLARE v_result DECIMAL(12,2);\n"
+        "    DECLARE v_op VARCHAR(10) DEFAULT UPPER(TRIM(COALESCE(p_stat_type, 'AVG')));\n"
+        "    IF v_op = 'MAX' THEN SELECT MAX(service_cost) INTO v_result FROM maintenance_logs;\n"
+        "    ELSEIF v_op = 'MIN' THEN SELECT MIN(service_cost) INTO v_result FROM maintenance_logs;\n"
+        "    ELSEIF v_op = 'SUM' THEN SELECT SUM(service_cost) INTO v_result FROM maintenance_logs;\n"
+        "    ELSEIF v_op = 'AVG' THEN SELECT AVG(service_cost) INTO v_result FROM maintenance_logs;\n"
+        "    ELSE SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid stat type. Allowed values: MAX, MIN, SUM, AVG';\n"
+        "    END IF;\n"
+        "    RETURN COALESCE(v_result, 0.00);\n"
+        "END //\n\n"
+        "CREATE PROCEDURE sp_get_maintenance_cost_stats(IN p_stat_type VARCHAR(10))\n"
+        "BEGIN\n"
+        "    SELECT UPPER(TRIM(COALESCE(p_stat_type, 'AVG'))) AS requested_operation,\n"
+        "           fn_get_maintenance_cost_stat(p_stat_type) AS requested_value,\n"
+        "           fn_get_maintenance_cost_stat('MIN') AS min_cost, fn_get_maintenance_cost_stat('MAX') AS max_cost,\n"
+        "           fn_get_maintenance_cost_stat('SUM') AS sum_cost, fn_get_maintenance_cost_stat('AVG') AS avg_cost;\n"
+        "END //"
+    )
+
+    add_p('3.4. Процедура з курсором для динамічного створення 2-х таблиць зі штампом часу (Пункт 2.e.i)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "CREATE PROCEDURE sp_split_clients_with_cursor()\n"
+        "BEGIN\n"
+        "    DECLARE v_done INT DEFAULT 0;\n"
+        "    DECLARE v_id INT; DECLARE v_first_name VARCHAR(50); DECLARE v_last_name VARCHAR(50);\n"
+        "    DECLARE v_email VARCHAR(100); DECLARE v_phone VARCHAR(20); DECLARE v_reg_date DATE;\n"
+        "    DECLARE v_ts VARCHAR(32); DECLARE v_tbl1 VARCHAR(64); DECLARE v_tbl2 VARCHAR(64);\n"
+        "    DECLARE v_count1 INT DEFAULT 0; DECLARE v_count2 INT DEFAULT 0;\n"
+        "    DECLARE cur_clients CURSOR FOR SELECT id, first_name, last_name, email, phone, registration_date FROM clients ORDER BY id;\n"
+        "    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;\n\n"
+        "    SET v_ts = CONCAT(DATE_FORMAT(NOW(6), '%Y%m%d_%H%i%s_%f'), '_', LPAD(FLOOR(RAND() * 1000), 3, '0'));\n"
+        "    SET v_tbl1 = CONCAT('clients_copy_1_', v_ts); SET v_tbl2 = CONCAT('clients_copy_2_', v_ts);\n"
+        "    SET @sql_create1 = CONCAT('CREATE TABLE `', v_tbl1, '` LIKE clients');\n"
+        "    PREPARE stmt_c1 FROM @sql_create1; EXECUTE stmt_c1; DEALLOCATE PREPARE stmt_c1;\n"
+        "    SET @sql_create2 = CONCAT('CREATE TABLE `', v_tbl2, '` LIKE clients');\n"
+        "    PREPARE stmt_c2 FROM @sql_create2; EXECUTE stmt_c2; DEALLOCATE PREPARE stmt_c2;\n"
+        "    ...\n"
+        "    OPEN cur_clients;\n"
+        "    read_loop: LOOP\n"
+        "        FETCH cur_clients INTO v_id, v_first_name, v_last_name, v_email, v_phone, v_reg_date;\n"
+        "        IF v_done = 1 THEN LEAVE read_loop; END IF;\n"
+        "        SET @p_id = v_id; SET @p_first_name = v_first_name; SET @p_last_name = v_last_name;\n"
+        "        SET @p_email = v_email; SET @p_phone = v_phone; SET @p_reg_date = v_reg_date;\n"
+        "        IF RAND() < 0.5 THEN\n"
+        "            EXECUTE stmt_ins1 USING @p_id, @p_first_name, @p_last_name, @p_email, @p_phone, @p_reg_date;\n"
+        "            SET v_count1 = v_count1 + 1;\n"
+        "        ELSE\n"
+        "            EXECUTE stmt_ins2 USING @p_id, @p_first_name, @p_last_name, @p_email, @p_phone, @p_reg_date;\n"
+        "            SET v_count2 = v_count2 + 1;\n"
+        "        END IF;\n"
+        "    END LOOP;\n"
+        "    CLOSE cur_clients;\n"
+        "    SELECT v_tbl1 AS table_1, v_count1 AS table_1_rows, v_tbl2 AS table_2, v_count2 AS table_2_rows, (v_count1 + v_count2) AS total_copied;\n"
+        "END //"
+    )
+
+    add_p('3.5. Додаткові тригери цілісності формату, кардинальності та журналювання (Пункт 3)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "-- 3.a: Заборона закінчення phone двома нулями (BEFORE INSERT та BEFORE UPDATE)\n"
+        "IF NEW.phone IS NOT NULL AND RIGHT(TRIM(NEW.phone), 2) = '00' THEN\n"
+        "    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Trigger Error (3.a): Client phone number cannot end with 00';\n"
+        "END IF;\n\n"
+        "-- 3.d: Мінімальна кардинальність 6 стрічок у clients (BEFORE DELETE)\n"
+        "SELECT COUNT(*) INTO v_count FROM clients;\n"
+        "IF v_count <= 6 THEN\n"
+        "    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Trigger Error (3.d): Minimum cardinality of 6 clients must be maintained';\n"
+        "END IF;\n\n"
+        "-- 3.f: Логування видалень із irrigation_systems зі штампом часу (AFTER DELETE)\n"
+        "INSERT INTO deletion_audit_log (table_name, record_id, deleted_details, deleted_at)\n"
+        "VALUES ('irrigation_systems', OLD.id, CONCAT('client_id=', OLD.client_id, ', system_name=', OLD.system_name, ', status=', OLD.status), NOW());"
+    )
+
+    add_p('3.6. Інтеграція збережених процедур у Flask DAO (my_project/auth/dao/stored_program_dao.py)', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "class StoredProgramDAO:\n"
+        "    def _call_procedure(self, sql_stmt: str, params: Optional[dict] = None, commit: bool = True):\n"
+        "        try:\n"
+        "            result = self._session.execute(text(sql_stmt), params or {})\n"
+        "            rows = self._serialize_rows(result.mappings().all()) if result.returns_rows else []\n"
+        "            if commit:\n"
+        "                self._session.commit()\n"
+        "            return rows\n"
+        "        except Exception:\n"
+        "            self._session.rollback()\n"
+        "            raise"
+    )
+
+    # 6. Testing & Results
+    add_p('4. Результати тестування через PyTest та REST API', WD_ALIGN_PARAGRAPH.LEFT, bold=True, size=13, space_after=6)
+    add_p(
+        'Усі тригери, збережені процедури, користувацьку функцію та курсор протестовано безпосередньо на живій СКБД MySQL 8.0.46 '
+        '(база даних soilsense_db) за допомогою автоматизованого набору тестів PyTest та HTTP-запитів.',
+        WD_ALIGN_PARAGRAPH.JUSTIFY
+    )
+
+    add_p('4.1. Результат виконання набору тестів pytest:', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "============================= test session starts =============================\n"
+        "platform win32 -- Python 3.13.7, pytest-9.2.0, pluggy-1.7.0 -- C:\\git\\LLM2.0\\lab4\\.venv\\Scripts\\python.exe\n"
+        "cachedir: .pytest_cache\n"
+        "rootdir: C:\\git\\LLM2.0\\lab5\n"
+        "collecting ... collected 8 items\n\n"
+        "tests/test_api.py::test_index_endpoint PASSED                            [ 12%]\n"
+        "tests/test_api.py::test_task1_1m_trigger_integrity PASSED                [ 25%]\n"
+        "tests/test_api.py::test_task2a_sp_parameterized_insert PASSED            [ 37%]\n"
+        "tests/test_api.py::test_task2b_sp_mm_relationship PASSED                 [ 50%]\n"
+        "tests/test_api.py::test_task2c_sp_noname_batch PASSED                    [ 62%]\n"
+        "tests/test_api.py::test_task2d_udf_and_sp_stats PASSED                   [ 75%]\n"
+        "tests/test_api.py::test_task2e_sp_cursor_split_tables PASSED             [ 87%]\n"
+        "tests/test_api.py::test_task3_custom_triggers PASSED                     [100%]\n\n"
+        "============================= 8 passed in 14.31s =============================="
+    )
+
+    add_p('4.2. Приклади реальних HTTP-запитів та відповідей JSON:', WD_ALIGN_PARAGRAPH.LEFT, bold=True)
+    add_code_block(
+        "1. Запит (2.a — параметризована вставка через sp_insert_maintenance_log):\n"
+        "POST /api/stored-programs/maintenance-logs\n"
+        "Статус: 201 Created\n"
+        "Відповідь: {\"description\": \"Очищення форсунок через процедуру\", \"id\": 7, \"maintenance_date\": \"2026-06-05\", \"service_cost\": 525.0, \"system_id\": 3, \"technician_name\": \"Олена Козак\"}\n\n"
+        "2. Запит (2.b — зв'язок M:M за реально-існуючими іменами):\n"
+        "POST /api/stored-programs/client-system-access\n"
+        "Статус: 201 Created\n"
+        "Відповідь: {\"access_role\": \"admin\", \"assigned_at\": \"2026-11-17T19:11:16\", \"client_id\": 4, \"first_name\": \"Анна\", \"id\": 5, \"last_name\": \"Шевченко\", \"system_id\": 1, \"system_name\": \"Полив Теплиця 1\"}\n\n"
+        "3. Запит (2.d — виклик користувацької функції fn_get_maintenance_cost_stat через процедуру):\n"
+        "GET /api/stored-programs/maintenance-cost-stats?op=MAX\n"
+        "Статус: 200 OK\n"
+        "Відповідь: {\"avg_cost\": 589.29, \"max_cost\": 1200.0, \"min_cost\": 250.0, \"requested_operation\": \"MAX\", \"requested_value\": 1200.0, \"sum_cost\": 4125.0}\n\n"
+        "4. Запит (2.e.i — курсор та динамічні 2 таблиці зі штампом часу):\n"
+        "POST /api/stored-programs/split-clients-cursor\n"
+        "Статус: 201 Created\n"
+        "Відповідь: {\"table_1\": \"clients_copy_1_20261117_191116_654467_229\", \"table_1_rows\": 5, \"table_2\": \"clients_copy_2_20261117_191116_654467_229\", \"table_2_rows\": 5, \"total_copied\": 10}\n\n"
+        "5. Перевірка тригерів (П. 1, 3.a, 3.f):\n"
+        "POST /api/clients (phone=\"+380671234500\") -> 400: {\"error\": \"Trigger Error (3.a): Client phone number cannot end with 00\"}\n"
+        "DELETE /api/irrigation-systems/1 (є логи)  -> 400: {\"error\": \"FK Trigger Error: Cannot delete irrigation_system with existing maintenance_logs\"}\n"
+        "DELETE /api/irrigation-systems/11 (без логів) -> 200 + запис у deletion_audit_log із deleted_at"
+    )
 
     # 7. Conclusion
     add_p('Висновок', WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=10)
     add_p(
-        'Під час виконання лабораторної роботи № 4 я успішно реалізував Back-End проект на мові програмування Python з використанням фреймворка Flask та інтеграцією із реляційною СКБД MySQL (база даних soilsense_db). '
-        'Для взаємодії з базою даних розгорнуто архітектуру згідно зі світовими стандартами розробки програмного забезпечення на основі N-рівневої архітектури (Layered Architecture): '
-        'рівень доменних сутностей (Domain Model) із DTO-серіалізацією (put_into_dto, create_from_dto), '
-        'рівень доступу до даних (DAO) із базовим класом GeneralDAO для уникнення дублювання CRUD-коду, '
-        'сервісний рівень (Service) для ізоляції бізнес-правил та контролери (Web Controller) із Flask Blueprints маршрутизацією. '
-        'Для двох пов’язаних сутностей clients та irrigation_systems реалізовано повний набір операцій CRUD, '
-        'а також спеціалізовані методи для отримання даних за зв’язком M:1 (вибірка систем поливу конкретного клієнта та вибірка клієнта для конкретної системи). '
-        'Конфігурацію бази даних винесено у зовнішній файл config/app.yml із підтримкою динамічного перевизначення через змінні середовища. '
-        'Працездатність розробленого REST API повністю перевірено та підтверджено автоматизованими тестами pytest (5 з 5 пройдено успішно) '
-        'і тестовими сценаріями в Postman, експортованими у готову колекцію postman_collection.json.',
+        'Під час виконання лабораторної роботи № 5 на базі проєкту лабораторної роботи № 4 (Flask + MySQL, база даних soilsense_db) '
+        'реалізовано повний комплекс збережених програм у СКБД MySQL 8.0 та їх виклик через контролери бекенду. '
+        'Створено таблицю maintenance_logs і забезпечено цілісність зв’язку 1:M із таблицею irrigation_systems виключно тригерами '
+        'без використання фізичного зовнішнього ключа. Розроблено збережені процедури для параметризованої вставки '
+        '(sp_insert_maintenance_log), зв’язування сутностей M:M за існуючими значеннями (sp_link_client_irrigation_system), '
+        'пакетної генерації 10 рядків формату Noname5..Noname14 (sp_insert_noname_systems), агрегуючу функцію '
+        'fn_get_maintenance_cost_stat (MAX, MIN, SUM, AVG) із процедурою виклику в SELECT, а також процедуру з курсором '
+        'sp_split_clients_with_cursor для динамічного створення двох таблиць зі штампом часу та випадкового копіювання рядків. '
+        'Реалізовано 3 додаткові тригери: заборона номерів телефону на «00», мінімальна кардинальність 6 рядків для таблиці clients '
+        'та аудит видалень із irrigation_systems у таблицю deletion_audit_log. Працездатність усіх ендпоінтів і конструкцій БД '
+        'підтверджено інтеграційним набором тестів PyTest (8 з 8 тестів пройдено успішно) та підготовлено колекцію postman_collection.json.',
         WD_ALIGN_PARAGRAPH.JUSTIFY
     )
 
-    output_path = Path(__file__).resolve().parent / 'звіт_лаб4_бд_Івков.docx'
-    doc.save(str(output_path))
-    print(f"Report saved to: {output_path}")
+    lab5_report = Path(__file__).resolve().parent / 'звіт_лаб5_бд_Івков.docx'
+    root_report = Path(__file__).resolve().parent.parent / 'звіт_лаб5_бд_Івков.docx'
+    doc.save(str(lab5_report))
+    doc.save(str(root_report))
+    print(f"Reports saved to:\n - {lab5_report}\n - {root_report}")
+
 
 if __name__ == '__main__':
     create_report()

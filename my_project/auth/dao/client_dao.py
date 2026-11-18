@@ -3,6 +3,7 @@ from my_project.auth.dao.general_dao import GeneralDAO
 from my_project.auth.domain.client import Client
 from my_project.auth.domain.irrigation_system import IrrigationSystem
 
+
 class ClientDAO(GeneralDAO):
     _model = Client
 

@@ -3,6 +3,7 @@ from my_project.auth.service.general_service import GeneralService
 from my_project.auth.dao.irrigation_system_dao import IrrigationSystemDAO
 from my_project.auth.domain.irrigation_system import IrrigationSystem
 
+
 class IrrigationSystemService(GeneralService):
     def __init__(self):
         self._dao = IrrigationSystemDAO()

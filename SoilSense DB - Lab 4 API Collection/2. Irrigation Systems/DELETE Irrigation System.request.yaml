@@ -1,4 +1,0 @@
-$kind: http-request
-url: "{{base_url}}/api/irrigation-systems/10"
-method: DELETE
-order: 5000

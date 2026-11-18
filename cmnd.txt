@@ -1,4 +1,4 @@
-.\.venv\Scripts\python.exe app.py
+..\lab4\.venv\Scripts\python.exe app.py
 
 
-.\.venv\Scripts\pytest.exe tests/
+..\lab4\.venv\Scripts\python.exe -m pytest tests/ -v

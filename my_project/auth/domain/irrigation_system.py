@@ -1,5 +1,6 @@
 from my_project import db
 
+
 class IrrigationSystem(db.Model):
     __tablename__ = 'irrigation_systems'
 
